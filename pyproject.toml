@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pyodio"
-version = "0.1.0"
+version = "0.1.0rc1"
 description = "Async Python client for odio-api, the universal remote for your Linux multimedia server"
 readme = "README.md"
 license = { file = "LICENSE" }
