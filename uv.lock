@@ -710,7 +710,6 @@ wheels = [
 
 [[package]]
 name = "pyodio"
-version = "0.1.0rc1"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },

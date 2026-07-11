@@ -23,13 +23,7 @@ jobs:
       # before the rest of the pipeline burns minutes.
       - name: Check tag matches project version
         if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          # Normalize the tag to PEP 440: v0.1.0-rc1 -> 0.1.0rc1
-          tag="$(echo "${GITHUB_REF_NAME#v}" | sed -E 's/-rc/rc/; s/-alpha/a/; s/-beta/b/')"
-          pyproject="$(uv version --short)"
-          init="$(uv run python -c 'import pyodio; print(pyodio.__version__)')"
-          echo "tag=$tag pyproject=$pyproject __init__=$init"
-          test "$tag" = "$pyproject" && test "$tag" = "$init"
+        run: uv run python scripts/version.py --check-tag "$GITHUB_REF_NAME"
       - name: ruff
         if: always()
         run: uv run ruff check src tests
