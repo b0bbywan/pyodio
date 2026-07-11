@@ -74,13 +74,20 @@ jobs:
         with:
           name: pyodio-dist
           path: dist/
+      # Immutable releases: assets can only be attached before publication,
+      # so create a draft with the assets, then publish it.
       - uses: softprops/action-gh-release@v3
         with:
+          draft: true
           files: |
             dist/*.tar.gz
             dist/*.whl
           generate_release_notes: true
           prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
+      - name: Publish draft release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false
 
   publish-to-testpypi:
     name: Publish to TestPyPI

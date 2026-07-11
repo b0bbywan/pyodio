@@ -62,7 +62,7 @@ from .models import (
 from .rest import DEFAULT_BASE_URL, OdioClient
 from .sse import EventStream, OdioEvent, stream_events
 
-__version__ = "0.1.0rc1"
+__version__ = "0.1.0rc2"
 
 __all__ = [
     "ADDED",
