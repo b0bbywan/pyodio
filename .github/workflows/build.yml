@@ -1,0 +1,129 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: '3.12'
+      - name: Install deps
+        run: uv sync
+      # Fail fast on a tag that doesn't match pyproject.toml/__init__.py,
+      # before the rest of the pipeline burns minutes.
+      - name: Check tag matches project version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pyproject="$(uv version --short)"
+          init="$(uv run python -c 'import pyodio; print(pyodio.__version__)')"
+          echo "tag=$tag pyproject=$pyproject __init__=$init"
+          test "$tag" = "$pyproject" && test "$tag" = "$init"
+      - name: ruff
+        if: always()
+        run: uv run ruff check src tests
+      - name: mypy
+        if: always()
+        run: uv run mypy src
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.12', '3.13', '3.14']
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install deps
+        run: uv sync
+      - name: Pytest
+        run: uv run pytest
+
+  build:
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: '3.12'
+      - name: Build sdist + wheel
+        run: uv build
+      - uses: actions/upload-artifact@v7
+        with:
+          name: pyodio-dist
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    needs: [build]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: pyodio-dist
+          path: dist/
+      - uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            dist/*.tar.gz
+            dist/*.whl
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
+
+  publish-to-testpypi:
+    name: Publish to TestPyPI
+    needs: [build]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/pyodio
+    permissions:
+      id-token: write  # mandatory for trusted publishing
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: pyodio-dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+  publish-to-pypi:
+    name: Publish to PyPI
+    needs: [build]
+    # Final releases only; prereleases (rc/beta/alpha) stop at TestPyPI.
+    if: >-
+      startsWith(github.ref, 'refs/tags/v')
+      && !contains(github.ref_name, '-rc')
+      && !contains(github.ref_name, '-beta')
+      && !contains(github.ref_name, '-alpha')
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/pyodio
+    permissions:
+      id-token: write  # mandatory for trusted publishing
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: pyodio-dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
