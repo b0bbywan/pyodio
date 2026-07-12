@@ -1,3 +1,33 @@
+  <p align="center">
+    <a href="https://odio.love"><img src="https://odio.love/logo.png" alt="odio" width="160" /></a>
+  </p>
+  <h1 align="center">pyodio</h1>
+  <p align="center"><em>Async Python client for odio — the live server state as high-level Python objects.</em></p>
+  <p align="center">
+    <a href="https://github.com/b0bbywan/pyodio/releases"><img src="https://img.shields.io/github/v/release/b0bbywan/pyodio?include_prereleases" alt="Release" /></a>
+    <a href="https://pypi.org/project/pyodio/"><img src="https://img.shields.io/pypi/v/pyodio" alt="PyPI" /></a>
+    <a href="https://github.com/b0bbywan/pyodio/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License" /></a>
+    <a href="https://github.com/b0bbywan/pyodio/actions/workflows/build.yml"><img src="https://github.com/b0bbywan/pyodio/actions/workflows/build.yml/badge.svg" alt="Build" /></a>
+    <a href="https://github.com/sponsors/b0bbywan"><img src="https://img.shields.io/github/sponsors/b0bbywan?label=Sponsor&logo=GitHub" alt="GitHub Sponsors" /></a>
+  </p>
+  <p align="center">
+    <a href="https://docs.odio.love/api/mpris/"><img src="https://img.shields.io/badge/MPRIS-003399" alt="MPRIS" /></a>
+    <a href="https://docs.odio.love/api/pulseaudio/"><img src="https://img.shields.io/badge/PulseAudio-0055AA" alt="PulseAudio" /></a>
+    <a href="https://docs.odio.love/api/bluetooth/"><img src="https://img.shields.io/badge/Bluetooth-0082FC?logo=bluetooth&logoColor=white" alt="Bluetooth" /></a>
+    <a href="https://docs.odio.love/api/systemd/"><img src="https://img.shields.io/badge/systemd-FF6B35" alt="systemd" /></a>
+    <a href="https://docs.odio.love/api/power/"><img src="https://img.shields.io/badge/Power-10B981" alt="Power" /></a>
+    <a href="https://docs.odio.love/api/events/"><img src="https://img.shields.io/badge/SSE%20Events-F97316" alt="SSE Events" /></a>
+  </p>
+  <p align="center">
+    Part of the <a href="https://odio.love">odio</a> project — <a href="https://docs.odio.love/control/pyodio/">full documentation</a>.
+  </p>
+  <p align="center">
+    <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white" alt="Python" /></a>
+    <a href="https://docs.aiohttp.org/"><img src="https://img.shields.io/badge/aiohttp-2C5BB4?logo=aiohttp&logoColor=white" alt="aiohttp" /></a>
+    <a href="https://docs.astral.sh/uv/"><img src="https://img.shields.io/badge/uv-DE5FE9?logo=uv&logoColor=white" alt="uv" /></a>
+    <a href="https://github.com/features/actions"><img src="https://img.shields.io/badge/GitHub%20Actions-2088FF?logo=githubactions&logoColor=white" alt="GitHub Actions" /></a>
+  </p>
+
 # pyodio
 
 Async Python client for [odio-api](https://github.com/b0bbywan/go-odio-api) — the universal remote for your Linux multimedia server.
