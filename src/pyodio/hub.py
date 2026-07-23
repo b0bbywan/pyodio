@@ -204,7 +204,9 @@ class Player:
     @property
     def cover_url(self) -> str:
         """URL of the server-side cover art proxy for this player."""
-        return self._hub.client.player_cover_url(self.bus_name)
+        return self._hub.client.player_cover_url(
+            self.bus_name, art_url=self.state.art_url, track_id=self.state.track_id
+        )
 
     @property
     def position(self) -> int | None:

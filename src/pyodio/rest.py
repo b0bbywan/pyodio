@@ -10,7 +10,7 @@ For a stateful, event-driven API, use :class:`pyodio.OdioHub` instead.
 from __future__ import annotations
 
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 import aiohttp
 
@@ -129,9 +129,16 @@ class OdioClient:
     async def get_players(self) -> list[PlayerState]:
         return [PlayerState.from_dict(p) for p in await self._get("/players") or []]
 
-    def player_cover_url(self, bus_name: str) -> str:
-        """Absolute URL of the server-side cover art proxy for a player."""
-        return f"{self._base_url}/players/{_seg(bus_name)}/cover"
+    def player_cover_url(self, bus_name: str, *, art_url: str | None = None, track_id: str | None = None) -> str:
+        """Absolute URL of the server-side cover art proxy for a player.
+
+        ``art_url``/``track_id`` are cache-busting query params (ignored
+        server-side): the URL changes whenever the track or its art does.
+        """
+        url = f"{self._base_url}/players/{_seg(bus_name)}/cover"
+        if art_url or track_id:
+            url += "?" + urlencode({"t": track_id or "", "a": art_url or ""})
+        return url
 
     async def player_play(self, bus_name: str) -> None:
         await self._post(f"/players/{_seg(bus_name)}/play")

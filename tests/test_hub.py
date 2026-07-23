@@ -44,7 +44,10 @@ async def test_player_commands_and_cover(fake):
         player = odio.players.find("Spotify")  # by identity, case-insensitive
         await player.play_pause()
         await player.set_position(5_000_000)  # track_id auto-filled
-        assert player.cover_url == f"{fake.url}/players/org.mpris.MediaPlayer2.spotify/cover"
+        assert player.cover_url == (
+            f"{fake.url}/players/org.mpris.MediaPlayer2.spotify/cover"
+            "?t=%2Forg%2Fmpris%2Ftrack%2F1&a=https%3A%2F%2Fexample.org%2Fcover.jpg"
+        )
 
     assert ("POST", "/players/org.mpris.MediaPlayer2.spotify/play_pause", None) in fake.requests
     assert ("POST", "/players/org.mpris.MediaPlayer2.spotify/position",
