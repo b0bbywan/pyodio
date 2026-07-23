@@ -976,6 +976,16 @@ class OdioHub:
             raise
         return self
 
+    async def start(self) -> OdioHub:
+        """Start the live event stream without blocking on an initial sync.
+
+        State fills in via the resync that runs when the stream first
+        connects; until then :attr:`server` raises. Useful when the server
+        may be down at startup and the caller holds cached state.
+        """
+        await self._stream.start()
+        return self
+
     async def close(self) -> None:
         """Stop the event stream and release resources."""
         await self._stream.stop()
