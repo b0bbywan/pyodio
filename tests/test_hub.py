@@ -211,6 +211,26 @@ async def test_upgrade_lifecycle_failure_keeps_availability(fake):
         assert odio.upgrade.current_version == "1.0.0"
 
 
+async def test_start_defers_sync_to_first_connect(fake):
+    hub = OdioHub(fake.url)
+    seen = []
+    hub.on_connection_change(lambda c: seen.append((c, hub._server is not None)))
+    await hub.start()
+    await eventually(lambda: hub.connected)
+    # Resync completed before the connection was reported.
+    assert seen[0] == (True, True)
+    assert hub.server.hostname == "odio-server"
+    assert len(hub.players) == 1
+    await hub.close()
+
+
+async def test_start_survives_unreachable_server():
+    hub = OdioHub("http://127.0.0.1:1")
+    await hub.start()
+    assert not hub.connected
+    await hub.close()
+
+
 async def test_backend_gating(fake):
     fake.server_info["backends"] = {"mpris": True, "pulseaudio": False, "systemd": False,
                                     "bluetooth": False, "power": False, "upgrade": False, "zeroconf": False}
