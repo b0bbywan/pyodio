@@ -172,13 +172,43 @@ async def test_upgrade_progress_events(fake):
         await eventually(lambda: odio.upgrade.in_progress)
         fake.push("upgrade.progress", {"event": "progress", "percent": 60, "step": "install"})
         await eventually(lambda: odio.upgrade.progress_percent == 60)
+        # Raw script end is not authoritative: the run stays in progress...
         fake.push("upgrade.progress", {"event": "end", "success": True})
+        await eventually(lambda: odio.upgrade.progress_percent == 100)
+        assert odio.upgrade.in_progress
+        # ...until the lifecycle snapshot lands; terminal "idle" means success.
+        fake.push("upgrade.info", {"state": "idle", "origin": "systemd",
+                                   "finished_at": "2026-07-11T09:05:00Z"})
         await eventually(lambda: not odio.upgrade.in_progress)
         assert odio.upgrade.status.run.state == "idle"
+        assert odio.upgrade.available is False
+        assert odio.upgrade.current_version == "1.1.0"
 
         fake.push("upgrade.info", {"current": "1.1.0", "latest": "1.1.0", "upgrade_available": False})
-        await eventually(lambda: not odio.upgrade.available)
+        await eventually(lambda: odio.upgrade.status.checked_at is None)
         assert odio.upgrade.status.can_upgrade is True  # preserved from snapshot
+
+
+async def test_upgrade_lifecycle_failure_keeps_availability(fake):
+    async with pyodio.connect(fake.url) as odio:
+        await eventually(lambda: odio.connected)
+        log = []
+        odio.upgrade.on_change(lambda change, u: log.append((change, u.progress_percent, u.status.run.state)))
+
+        # A script run outside systemd is adopted from its socket stream:
+        # same events, origin "socket".
+        fake.push("upgrade.progress", {"event": "progress", "percent": 40, "step": "download"})
+        await eventually(lambda: odio.upgrade.progress_percent == 40)
+        # Lifecycle "running" keeps script-reported progress.
+        fake.push("upgrade.info", {"state": "running", "origin": "socket"})
+        fake.push("upgrade.info", {"state": "failed", "origin": "socket",
+                                   "finished_at": "2026-07-11T09:05:00Z"})
+        await eventually(lambda: not odio.upgrade.in_progress)
+        assert ("updated", 40, "running") in log
+        assert odio.upgrade.status.run.state == "failed"
+        assert odio.upgrade.progress_percent is None
+        assert odio.upgrade.available is True  # failed run changes nothing
+        assert odio.upgrade.current_version == "1.0.0"
 
 
 async def test_backend_gating(fake):

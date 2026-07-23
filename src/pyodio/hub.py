@@ -836,8 +836,7 @@ class Upgrade:
         if self.status is None:
             self.status = UpgradeStatus()
         if "state" in data:
-            # Run-lifecycle shape: {"state": ..., "percent": ..., "step": ...}
-            self.status.run = UpgradeRunState.from_dict(data)
+            self._apply_lifecycle(self.status, data)
         else:
             # Detector-status shape; keep run/capability fields the event lacks.
             fresh = UpgradeStatus.from_dict(data)
@@ -849,6 +848,30 @@ class Upgrade:
             self.status = fresh
         self._notifier.notify(UPDATED, self)
 
+    @staticmethod
+    def _apply_lifecycle(status: UpgradeStatus, data: dict[str, Any]) -> None:
+        """Run-lifecycle shape — a ``RunState`` snapshot, authoritative for completion.
+
+        The server emits it for both systemd-triggered runs (unit result) and
+        scripts run directly (socket ``end``); the terminal ``state`` is the
+        verdict: ``idle`` means the run succeeded, ``failed`` that it failed.
+        """
+        run = UpgradeRunState.from_dict(data)
+        prev = status.run
+        if run.running:
+            # Keep script-reported progress the lifecycle event lacks.
+            run.percent = run.percent if run.percent is not None else prev.percent
+            run.step = run.step if run.step is not None else prev.step
+        else:
+            run.percent = None
+            run.step = None
+            if prev.running and run.state == UpgradeRunStateValue.IDLE:
+                # Installed latest; reflect it without waiting for re-detection.
+                status.upgrade_available = False
+                if status.latest:
+                    status.current = status.latest
+        status.run = run
+
     def _apply_progress(self, data: dict[str, Any]) -> None:
         if self.status is None:
             self.status = UpgradeStatus()
@@ -857,6 +880,8 @@ class Upgrade:
         if kind == "begin":
             run.state = UpgradeRunStateValue.RUNNING
             run.percent = 0
+            if isinstance(data.get("step"), str):
+                run.step = data["step"]
         elif kind == "progress":
             run.state = UpgradeRunStateValue.RUNNING
             if isinstance(data.get("percent"), int):
@@ -864,7 +889,10 @@ class Upgrade:
             if isinstance(data.get("step"), str):
                 run.step = data["step"]
         elif kind == "end":
-            run.state = UpgradeRunStateValue.IDLE if data.get("success") else UpgradeRunStateValue.FAILED
+            # Raw script line; the run is closed by the lifecycle upgrade.info
+            # the server derives from it (or from the systemd unit result).
+            if data.get("success"):
+                run.percent = 100
         self._notifier.notify(PROGRESS, self)
 
 
