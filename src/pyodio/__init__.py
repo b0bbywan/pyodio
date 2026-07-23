@@ -57,6 +57,7 @@ from .models import (
     ServiceScope,
     ServiceState,
     UpgradeRunState,
+    UpgradeRunStateValue,
     UpgradeStatus,
 )
 from .rest import DEFAULT_BASE_URL, OdioClient
@@ -107,6 +108,7 @@ __all__ = [
     "Services",
     "Upgrade",
     "UpgradeRunState",
+    "UpgradeRunStateValue",
     "UpgradeStatus",
     "connect",
     "stream_events",
