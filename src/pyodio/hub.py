@@ -309,6 +309,9 @@ class Players(EntityMap[Player]):
                 self._remove(bus_name)
 
     def _upsert(self, state: PlayerState) -> Player:
+        # Old servers omit position_updated_at; stamp receipt so extrapolation works.
+        if state.position is not None and state.position_updated_at is None:
+            state.position_updated_at = datetime.now(UTC)
         player = self._items.get(state.bus_name)
         if player is None:
             player = Player(self._hub, state)
