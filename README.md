@@ -59,6 +59,12 @@ async def main():
             await player.play_pause()
             await player.set_volume(0.5)
 
+            # Tracklist (players implementing MPRIS TrackList)
+            if player.tracklist_supported:
+                for track in player.tracks:
+                    print(f"{'>' if track == player.current_track else ' '} {track.title}")
+                await player.go_to(player.tracks[-1])
+
         # Master volume / outputs
         await odio.audio.set_volume(0.4)
         for output in odio.audio.outputs.values():
@@ -81,7 +87,7 @@ The URL defaults to `http://localhost:8018`; `pyodio.connect()` also works with 
 
 | Domain | State | Commands |
 |---|---|---|
-| `odio.players` | live `Player` entities by bus name, `find()`, `playing` | `play/pause/play_pause/stop/next/previous/seek/set_position/set_volume/set_loop/set_shuffle`, `cover_url` |
+| `odio.players` | live `Player` entities by bus name, `find()`, `playing`, `tracks`/`current_track` | `play/pause/play_pause/stop/next/previous/seek/set_position/set_volume/set_loop/set_shuffle`, `cover_url`, `go_to/add_track/remove_track` |
 | `odio.audio` | master `volume`/`muted`, `clients`, `outputs`, `default_output` | `set_volume`, `set_muted`, per-client/output volume & mute, `make_default()` |
 | `odio.services` | `Service` entities by `scope/name` | `start/stop/restart/enable/disable` |
 | `odio.bluetooth` | adapter state + `devices` by MAC | `power_up/down`, `pairing_mode`, `scan`, `connect/disconnect` |
@@ -99,7 +105,7 @@ Niceties handled for you:
 Subscriptions (all return an unsubscribe callable, listeners must not block):
 
 ```python
-odio.players.on_change(cb)        # cb(change, player)   change: added/updated/removed/position
+odio.players.on_change(cb)        # cb(change, player)   change: added/updated/removed/position/tracklist
 odio.audio.on_change(cb)          # cb(change, client_or_output)
 odio.services.on_change(cb)
 odio.bluetooth.on_change(cb)      # includes "discovered" during scans
