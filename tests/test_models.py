@@ -7,10 +7,11 @@ from pyodio.models import (
     PlayerState,
     ServerInfo,
     ServiceState,
+    TracklistState,
     UpgradeStatus,
 )
 
-from conftest import BLUETOOTH_STATE, PLAYER_SPOTIFY, SERVICE_MPD, UPGRADE_STATUS
+from conftest import BLUETOOTH_STATE, PLAYER_SPOTIFY, SERVICE_MPD, TRACKLIST_SPOTIFY, UPGRADE_STATUS
 
 
 def test_server_info():
@@ -58,6 +59,28 @@ def test_player_state_minimal():
 def test_player_state_bad_length_metadata():
     player = PlayerState.from_dict({"bus_name": "x", "metadata": {"mpris:length": "not-a-number"}})
     assert player.duration is None
+
+
+def test_player_state_tracklist_supported():
+    assert PlayerState.from_dict(PLAYER_SPOTIFY).tracklist_supported is True
+    assert PlayerState.from_dict({"bus_name": "x"}).tracklist_supported is False
+
+
+def test_tracklist_state():
+    tracklist = TracklistState.from_dict(TRACKLIST_SPOTIFY)
+    assert tracklist.can_edit_tracks is True
+    assert [t.track_id for t in tracklist.tracks] == ["/org/mpris/track/1", "/org/mpris/track/2"]
+    first = tracklist.tracks[0]
+    assert first.title == "Song One"
+    assert first.artist == "Some Artist"
+    assert first.duration == 180_000_000
+    assert tracklist.tracks[1].duration is None
+
+
+def test_tracklist_state_minimal():
+    tracklist = TracklistState.from_dict({})
+    assert tracklist.can_edit_tracks is False
+    assert tracklist.tracks == []
 
 
 def test_service_state_key():

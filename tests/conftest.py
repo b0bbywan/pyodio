@@ -37,6 +37,21 @@ PLAYER_SPOTIFY = {
         "can_seek": True,
         "can_control": True,
     },
+    "tracklist_supported": True,
+}
+
+TRACKLIST_SPOTIFY = {
+    "can_edit_tracks": True,
+    "tracks": [
+        {
+            "track_id": "/org/mpris/track/1",
+            "metadata": {"xesam:title": "Song One", "xesam:artist": "Some Artist", "mpris:length": "180000000"},
+        },
+        {
+            "track_id": "/org/mpris/track/2",
+            "metadata": {"xesam:title": "Song Two", "xesam:artist": "Some Artist"},
+        },
+    ],
 }
 
 AUDIO_CLIENT_MPD = {
@@ -142,6 +157,7 @@ class FakeOdio:
         }
         self.power = {"reboot": True, "power_off": False}
         self.players = [dict(PLAYER_SPOTIFY)]
+        self.tracklists: dict[str, Any] = {PLAYER_SPOTIFY["bus_name"]: dict(TRACKLIST_SPOTIFY)}
         self.audio_server = {"kind": "pipewire", "default_sink": AUDIO_OUTPUT_ALSA["name"], "volume": 0.5, "muted": False}
         self.audio_clients = [dict(AUDIO_CLIENT_MPD)]
         self.audio_outputs = [dict(AUDIO_OUTPUT_ALSA), dict(AUDIO_OUTPUT_USB)]
@@ -170,6 +186,7 @@ class FakeOdio:
         r.add_get("/server", self._json(lambda: self.server_info))
         r.add_get("/power", self._json(lambda: self.power))
         r.add_get("/players", self._json(lambda: self.players))
+        r.add_get("/players/{player}/tracklist", self._tracklist_handler)
         r.add_get("/audio", self._audio_handler)
         r.add_get("/audio/server", self._json(lambda: self.audio_server))
         r.add_get("/audio/clients", self._json(lambda: self.audio_clients))
@@ -187,6 +204,12 @@ class FakeOdio:
             return web.json_response(supplier())
 
         return handler
+
+    async def _tracklist_handler(self, request: web.Request) -> web.Response:
+        tracklist = self.tracklists.get(request.match_info["player"])
+        if tracklist is None:
+            return web.Response(status=404, text="404 page not found")
+        return web.json_response(tracklist)
 
     async def _audio_handler(self, request: web.Request) -> web.Response:
         if self.legacy_audio:
