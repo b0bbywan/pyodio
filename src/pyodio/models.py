@@ -56,6 +56,17 @@ def _parse_datetime(value: Any) -> datetime | None:
         return None
 
 
+def _length_micros(metadata: dict[str, str]) -> int | None:
+    """Track length in microseconds from flattened ``mpris:length`` metadata."""
+    raw = metadata.get("mpris:length")
+    if raw is None:
+        return None
+    try:
+        return int(float(raw))
+    except ValueError:
+        return None
+
+
 def _millis_to_datetime(value: Any) -> datetime | None:
     """Convert unix milliseconds (as emitted by SSE envelopes) to datetime."""
     if not isinstance(value, (int, float)) or isinstance(value, bool):
@@ -168,6 +179,7 @@ class PlayerState:
     rate: float | None = None
     metadata: dict[str, str] = field(default_factory=dict)
     capabilities: PlayerCapabilities = field(default_factory=PlayerCapabilities)
+    tracklist_supported: bool = False
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> PlayerState:
@@ -183,6 +195,7 @@ class PlayerState:
             rate=data.get("rate"),
             metadata=dict(data.get("metadata") or {}),
             capabilities=PlayerCapabilities.from_dict(data.get("capabilities") or {}),
+            tracklist_supported=bool(data.get("tracklist_supported", False)),
         )
 
     @property
@@ -219,13 +232,63 @@ class PlayerState:
     @property
     def duration(self) -> int | None:
         """Track length in microseconds, from ``mpris:length`` metadata."""
-        raw = self.metadata.get("mpris:length")
-        if raw is None:
-            return None
-        try:
-            return int(float(raw))
-        except ValueError:
-            return None
+        return _length_micros(self.metadata)
+
+
+@dataclass(slots=True)
+class Track:
+    """An entry in a player's tracklist.
+
+    ``track_id`` is the MPRIS track object path (unique within a tracklist).
+    ``metadata`` values are always strings (the server flattens them).
+    """
+
+    track_id: str
+    metadata: dict[str, str] = field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Track:
+        return cls(
+            track_id=data.get("track_id", ""),
+            metadata=dict(data.get("metadata") or {}),
+        )
+
+    @property
+    def title(self) -> str | None:
+        return self.metadata.get("xesam:title")
+
+    @property
+    def artist(self) -> str | None:
+        return self.metadata.get("xesam:artist")
+
+    @property
+    def album(self) -> str | None:
+        return self.metadata.get("xesam:album")
+
+    @property
+    def art_url(self) -> str | None:
+        return self.metadata.get("mpris:artUrl")
+
+    @property
+    def duration(self) -> int | None:
+        """Track length in microseconds, from ``mpris:length`` metadata."""
+        return _length_micros(self.metadata)
+
+
+@dataclass(slots=True)
+class TracklistState:
+    """A player's tracklist: response of ``GET /players/{player}/tracklist``
+    and payload of the ``player.tracklist.updated`` event."""
+
+    can_edit_tracks: bool = False
+    tracks: list[Track] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> TracklistState:
+        return cls(
+            can_edit_tracks=bool(data.get("can_edit_tracks", False)),
+            tracks=[Track.from_dict(t) for t in data.get("tracks") or [] if isinstance(t, dict)],
+        )
 
 
 @dataclass(slots=True)
