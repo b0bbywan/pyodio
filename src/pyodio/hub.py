@@ -38,6 +38,8 @@ from .models import (
     PowerCapabilities,
     ServerInfo,
     ServiceState,
+    Track,
+    TracklistState,
     UpgradeRunState,
     UpgradeRunStateValue,
     UpgradeStatus,
@@ -52,6 +54,7 @@ EVENT_PLAYER_UPDATED = "player.updated"
 EVENT_PLAYER_ADDED = "player.added"
 EVENT_PLAYER_REMOVED = "player.removed"
 EVENT_PLAYER_POSITION = "player.position"
+EVENT_PLAYER_TRACKLIST = "player.tracklist.updated"
 EVENT_AUDIO_UPDATED = "audio.updated"
 EVENT_AUDIO_REMOVED = "audio.removed"
 EVENT_AUDIO_OUTPUT_UPDATED = "audio.output.updated"
@@ -68,6 +71,7 @@ ADDED = "added"
 UPDATED = "updated"
 REMOVED = "removed"
 POSITION = "position"
+TRACKLIST = "tracklist"
 DISCOVERED = "discovered"
 PROGRESS = "progress"
 
@@ -128,6 +132,10 @@ class EntityMap[E](Mapping[str, E]):
 # --------------------------------------------------------------------- MPRIS
 
 
+def _track_ref(track: Track | str) -> str:
+    return track.track_id if isinstance(track, Track) else track
+
+
 class Player:
     """A live MPRIS player: current state plus transport commands."""
 
@@ -135,6 +143,8 @@ class Player:
         self._hub = hub
         self.state = state
         self.available = True
+        #: Live tracklist, or ``None`` until fetched (kept fresh via SSE).
+        self.tracklist: TracklistState | None = None
 
     def __repr__(self) -> str:
         return f"<Player {self.bus_name} {self.state.playback_status}>"
@@ -200,6 +210,30 @@ class Player:
     @property
     def metadata(self) -> dict[str, str]:
         return self.state.metadata
+
+    @property
+    def tracklist_supported(self) -> bool:
+        """Whether the player implements the MPRIS TrackList interface."""
+        return self.state.tracklist_supported
+
+    @property
+    def can_edit_tracks(self) -> bool:
+        return bool(self.tracklist and self.tracklist.can_edit_tracks)
+
+    @property
+    def tracks(self) -> list[Track]:
+        return self.tracklist.tracks if self.tracklist else []
+
+    @property
+    def current_track(self) -> Track | None:
+        """The tracklist entry matching the current ``mpris:trackid``, if any."""
+        current = self.state.track_id
+        if current is None or self.tracklist is None:
+            return None
+        for track in self.tracklist.tracks:
+            if track.track_id == current:
+                return track
+        return None
 
     @property
     def cover_url(self) -> str:
@@ -271,6 +305,29 @@ class Player:
     async def set_shuffle(self, shuffle: bool) -> None:
         await self._hub.client.player_set_shuffle(self.bus_name, shuffle)
 
+    # Tracklist -------------------------------------------------------------
+    async def refresh_tracklist(self) -> TracklistState:
+        """Fetch the tracklist from the server and cache it on the player."""
+        self.tracklist = await self._hub.client.get_player_tracklist(self.bus_name)
+        return self.tracklist
+
+    async def go_to(self, track: Track | str) -> None:
+        """Skip to a tracklist entry (a :class:`Track` or its id)."""
+        await self._hub.client.player_tracklist_goto(self.bus_name, _track_ref(track))
+
+    async def add_track(
+        self, uri: str, *, after_track: Track | str | None = None, set_as_current: bool = False
+    ) -> None:
+        """Add ``uri`` to the tracklist, after ``after_track`` (default: append at the end)."""
+        after = _track_ref(after_track) if after_track is not None else None
+        await self._hub.client.player_tracklist_add(
+            self.bus_name, uri, after_track=after, set_as_current=set_as_current
+        )
+
+    async def remove_track(self, track: Track | str) -> None:
+        """Remove a tracklist entry (a :class:`Track` or its id)."""
+        await self._hub.client.player_tracklist_remove(self.bus_name, _track_ref(track))
+
 
 class Players(EntityMap[Player]):
     """Live MPRIS players, keyed by bus name."""
@@ -307,6 +364,22 @@ class Players(EntityMap[Player]):
         for bus_name in list(self._items):
             if bus_name not in seen:
                 self._remove(bus_name)
+
+    async def _sync_tracklists(self) -> None:
+        """Fetch the tracklist of each supporting player (resync path).
+
+        Failures only cost that player's tracklist (the cached one is kept);
+        SSE ``player.tracklist.updated`` events keep it fresh afterwards.
+        """
+        for player in list(self._items.values()):
+            if not player.state.tracklist_supported:
+                continue
+            try:
+                player.tracklist = await self._hub.client.get_player_tracklist(player.bus_name)
+            except OdioApiError:
+                _LOGGER.debug("Tracklist fetch failed for %s", player.bus_name, exc_info=True)
+                continue
+            self._notifier.notify(TRACKLIST, player)
 
     def _upsert(self, state: PlayerState) -> Player:
         # Old servers omit position_updated_at; stamp receipt so extrapolation works.
@@ -353,6 +426,16 @@ class Players(EntityMap[Player]):
                 else:
                     player.state.position_updated_at = datetime.now(UTC)
                 self._notifier.notify(POSITION, player)
+        elif event.type == EVENT_PLAYER_TRACKLIST:
+            for item in _as_list(event.data):
+                player = self._items.get(item.get("bus_name", ""))
+                if player is None:
+                    continue
+                # A tracklist event implies support, even if the initial
+                # snapshot predated the player advertising it.
+                player.state.tracklist_supported = True
+                player.tracklist = TracklistState.from_dict(item)
+                self._notifier.notify(TRACKLIST, player)
 
 
 # --------------------------------------------------------------------- Audio
@@ -998,6 +1081,7 @@ class OdioHub:
 
         if backends.mpris:
             self.players._set_snapshot(await self.client.get_players())
+            await self.players._sync_tracklists()
         if backends.pulseaudio:
             server_state = await self.client.get_audio_server()
             self.audio._set_snapshot(await self.client.get_audio(), server_state)

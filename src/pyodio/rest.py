@@ -26,6 +26,7 @@ from .models import (
     PowerCapabilities,
     ServerInfo,
     ServiceState,
+    TracklistState,
     UpgradeStatus,
 )
 
@@ -178,6 +179,28 @@ class OdioClient:
 
     async def player_set_shuffle(self, bus_name: str, shuffle: bool) -> None:
         await self._post(f"/players/{_seg(bus_name)}/shuffle", {"shuffle": shuffle})
+
+    async def get_player_tracklist(self, bus_name: str) -> TracklistState:
+        return TracklistState.from_dict(await self._get(f"/players/{_seg(bus_name)}/tracklist") or {})
+
+    async def player_tracklist_goto(self, bus_name: str, track_id: str) -> None:
+        """Skip to a tracklist entry. ``track_id`` is a full MPRIS track object path
+        (or just its last segment; the server resolves both)."""
+        await self._post(f"/players/{_seg(bus_name)}/tracklist/goto/{_seg(track_id)}")
+
+    async def player_tracklist_add(
+        self, bus_name: str, uri: str, *, after_track: str | None = None, set_as_current: bool = False
+    ) -> None:
+        """Add ``uri`` to the tracklist, after ``after_track`` (default: append at the end)."""
+        body: dict[str, Any] = {"uri": uri}
+        if after_track is not None:
+            body["after_track"] = after_track
+        if set_as_current:
+            body["set_as_current"] = True
+        await self._post(f"/players/{_seg(bus_name)}/tracklist/add", body)
+
+    async def player_tracklist_remove(self, bus_name: str, track_id: str) -> None:
+        await self._post(f"/players/{_seg(bus_name)}/tracklist/remove/{_seg(track_id)}")
 
     # -------------------------------------------------------------- audio
     async def get_audio(self) -> AudioSnapshot:
