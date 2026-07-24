@@ -35,6 +35,34 @@ async def test_player_commands_and_encoding(fake):
     assert fake.requests[3][2] == {"loop": "Track"}
 
 
+async def test_get_player_tracklist(fake):
+    async with OdioClient(fake.url) as client:
+        tracklist = await client.get_player_tracklist("org.mpris.MediaPlayer2.spotify")
+    assert tracklist.can_edit_tracks is True
+    assert tracklist.tracks[0].title == "Song One"
+
+
+async def test_tracklist_commands_and_encoding(fake):
+    bus = "org.mpris.MediaPlayer2.spotify"
+    async with OdioClient(fake.url) as client:
+        await client.player_tracklist_goto(bus, "/org/mpris/track/2")
+        await client.player_tracklist_add(bus, "file:///music/song.flac")
+        await client.player_tracklist_add(
+            bus, "file:///music/song.flac", after_track="/org/mpris/track/1", set_as_current=True
+        )
+        await client.player_tracklist_remove(bus, "/org/mpris/track/1")
+
+    prefix = f"/players/{bus}/tracklist"
+    assert fake.requests[0] == ("POST", f"{prefix}/goto/%2Forg%2Fmpris%2Ftrack%2F2", None)
+    assert fake.requests[1] == ("POST", f"{prefix}/add", {"uri": "file:///music/song.flac"})
+    assert fake.requests[2][2] == {
+        "uri": "file:///music/song.flac",
+        "after_track": "/org/mpris/track/1",
+        "set_as_current": True,
+    }
+    assert fake.requests[3] == ("POST", f"{prefix}/remove/%2Forg%2Fmpris%2Ftrack%2F1", None)
+
+
 async def test_client_name_url_encoding(fake):
     async with OdioClient(fake.url) as client:
         await client.set_client_volume("Playback/Stream #1", 0.4)

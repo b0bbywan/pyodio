@@ -92,6 +92,92 @@ async def test_player_position_beacon(fake):
         assert 60_000_000 <= player.position <= player.duration
 
 
+async def test_connect_populates_tracklist(fake):
+    async with pyodio.connect(fake.url) as odio:
+        player = odio.players.find("spotify")
+        assert player.tracklist_supported is True
+        assert player.can_edit_tracks is True
+        assert [t.title for t in player.tracks] == ["Song One", "Song Two"]
+        assert player.current_track.track_id == "/org/mpris/track/1"
+
+
+async def test_tracklist_event_updates_state(fake):
+    async with pyodio.connect(fake.url) as odio:
+        await eventually(lambda: odio.connected)
+        changes = []
+        odio.players.on_change(lambda change, p: changes.append((change, p.bus_name)))
+
+        fake.push("player.tracklist.updated", {
+            "bus_name": "org.mpris.MediaPlayer2.spotify",
+            "can_edit_tracks": False,
+            "tracks": [{"track_id": "/org/mpris/track/9", "metadata": {"xesam:title": "Song Nine"}}],
+            "emitted_at": 1770000000000,
+        })
+        player = odio.players.find("spotify")
+        await eventually(lambda: [t.track_id for t in player.tracks] == ["/org/mpris/track/9"])
+        assert player.can_edit_tracks is False
+        assert ("tracklist", "org.mpris.MediaPlayer2.spotify") in changes
+
+        # A player.updated event replaces the state but keeps the tracklist.
+        fake.push("player.updated", {"data": dict(PLAYER_SPOTIFY, playback_status="Paused"),
+                                     "emitted_at": 1770000000000})
+        await eventually(lambda: not player.is_playing)
+        assert [t.title for t in player.tracks] == ["Song Nine"]
+
+
+async def test_tracklist_event_implies_support(fake):
+    async with pyodio.connect(fake.url) as odio:
+        await eventually(lambda: odio.connected)
+        fake.push("player.added", {"data": {"bus_name": "org.mpris.MediaPlayer2.vlc", "identity": "VLC"},
+                                   "emitted_at": 1770000000000})
+        await eventually(lambda: "org.mpris.MediaPlayer2.vlc" in odio.players)
+        vlc = odio.players["org.mpris.MediaPlayer2.vlc"]
+        assert vlc.tracklist_supported is False
+
+        fake.push("player.tracklist.updated", {"bus_name": "org.mpris.MediaPlayer2.vlc",
+                                               "can_edit_tracks": True, "tracks": [],
+                                               "emitted_at": 1770000000000})
+        await eventually(lambda: vlc.tracklist_supported)
+        assert vlc.tracks == []
+
+
+async def test_tracklist_commands(fake):
+    async with pyodio.connect(fake.url) as odio:
+        player = odio.players.find("spotify")
+        first = player.tracks[0]
+        await player.go_to(player.tracks[1])
+        await player.add_track("file:///music/song.flac", after_track=first, set_as_current=True)
+        await player.remove_track("/org/mpris/track/1")
+
+    prefix = "/players/org.mpris.MediaPlayer2.spotify/tracklist"
+    assert ("POST", f"{prefix}/goto/%2Forg%2Fmpris%2Ftrack%2F2", None) in fake.requests
+    assert ("POST", f"{prefix}/add",
+            {"uri": "file:///music/song.flac", "after_track": "/org/mpris/track/1", "set_as_current": True}
+            ) in fake.requests
+    assert ("POST", f"{prefix}/remove/%2Forg%2Fmpris%2Ftrack%2F1", None) in fake.requests
+
+
+async def test_refresh_tracklist(fake):
+    async with pyodio.connect(fake.url) as odio:
+        player = odio.players.find("spotify")
+        fake.tracklists[player.bus_name] = {"can_edit_tracks": True, "tracks": []}
+        tracklist = await player.refresh_tracklist()
+        assert tracklist.tracks == []
+        assert player.tracks == []
+
+
+async def test_tracklist_fetch_failure_is_tolerated(fake):
+    # Old servers advertise support in /players but predate /tracklist.
+    fake.tracklists.clear()
+    async with pyodio.connect(fake.url) as odio:
+        player = odio.players.find("spotify")
+        assert player.tracklist_supported is True
+        assert player.tracklist is None
+        assert player.tracks == []
+        assert player.can_edit_tracks is False
+        assert player.current_track is None
+
+
 async def test_position_extrapolation_while_playing(fake):
     async with pyodio.connect(fake.url) as odio:
         player = odio.players.find("spotify")
