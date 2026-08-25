@@ -3,7 +3,7 @@
 from datetime import UTC, datetime, timedelta
 
 import pyodio
-from pyodio import OdioHub
+from pyodio import OdioHub, OdioTimeoutError
 
 from conftest import PLAYER_SPOTIFY, eventually
 
@@ -327,6 +327,24 @@ async def test_backend_gating(fake):
         assert odio.bluetooth.state is None
         assert odio.power.capabilities is None
         assert odio.upgrade.status is None
+
+
+async def test_resync_survives_power_failure(fake):
+    # A hung or failing /power is optional decoration; it must not abort the
+    # resync and keep every consumer disconnected.
+    hub = OdioHub(fake.url)
+
+    async def _timeout():
+        raise OdioTimeoutError("Timeout on GET /power")
+
+    hub.client.get_power_capabilities = _timeout
+    await hub.connect()
+    await eventually(lambda: hub.connected)
+    assert hub.power.capabilities is None
+    assert hub.server.hostname == "odio-server"
+    # /upgrade is fetched after /power: proves the resync ran past the failure.
+    assert hub.upgrade.status is not None
+    await hub.close()
 
 
 async def test_hub_default_url_is_localhost():
