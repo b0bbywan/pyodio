@@ -1097,7 +1097,8 @@ class OdioHub:
         if backends.power:
             try:
                 self.power.capabilities = await self.client.get_power_capabilities()
-            except OdioApiError:
+            except OdioError:
+                # Optional decoration — a hung /power must not abort the resync.
                 self.power.capabilities = None
         if backends.upgrade:
             self.upgrade._set_status(await self.client.get_upgrade())
