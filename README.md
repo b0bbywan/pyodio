@@ -53,7 +53,7 @@ async def main():
         print(f"Connected to {odio.server.hostname} (odio-api {odio.server.api_version})")
 
         # MPRIS players — live objects with transport controls
-        player = odio.players.find("spotify")
+        player = odio.players.find("spotifyd")
         if player:
             print(f"{player.title} — {player.artist} [{player.playback_status}]")
             await player.play_pause()
