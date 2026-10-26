@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable, Iterator, Mapping
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Self
 
 import aiohttp
 
@@ -1019,7 +1019,7 @@ class OdioHub:
         self.power = Power(self)
         self.upgrade = Upgrade(self)
 
-    async def __aenter__(self) -> OdioHub:
+    async def __aenter__(self) -> Self:
         return await self.connect()
 
     async def __aexit__(self, *exc_info: object) -> None:
@@ -1049,7 +1049,7 @@ class OdioHub:
         """Subscribe to event-stream connectivity changes (True/False)."""
         return self._stream.add_connection_listener(listener)
 
-    async def connect(self) -> OdioHub:
+    async def connect(self) -> Self:
         """Fetch the initial state and start the live event stream."""
         try:
             await self._resync()
