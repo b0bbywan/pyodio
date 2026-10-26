@@ -9,7 +9,7 @@ For a stateful, event-driven API, use :class:`pyodio.OdioHub` instead.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Self
 from urllib.parse import quote, urlencode
 
 import aiohttp
@@ -78,7 +78,7 @@ class OdioClient:
         if self._owns_session and self._session is not None and not self._session.closed:
             await self._session.close()
 
-    async def __aenter__(self) -> OdioClient:
+    async def __aenter__(self) -> Self:
         return self
 
     async def __aexit__(self, *exc_info: object) -> None:
