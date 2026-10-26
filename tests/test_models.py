@@ -2,6 +2,8 @@
 
 from datetime import UTC, datetime
 
+from conftest import BLUETOOTH_STATE, PLAYER_SPOTIFY, SERVICE_MPD, TRACKLIST_SPOTIFY, UPGRADE_STATUS
+
 from pyodio.models import (
     BluetoothState,
     PlayerState,
@@ -10,8 +12,6 @@ from pyodio.models import (
     TracklistState,
     UpgradeStatus,
 )
-
-from conftest import BLUETOOTH_STATE, PLAYER_SPOTIFY, SERVICE_MPD, TRACKLIST_SPOTIFY, UPGRADE_STATUS
 
 
 def test_server_info():

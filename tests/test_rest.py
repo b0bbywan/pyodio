@@ -1,10 +1,9 @@
 """Low-level REST client tests against the fake server."""
 
 import pytest
+from conftest import eventually  # noqa: F401  (fixture module import)
 
 from pyodio import LoopStatus, OdioApiError, OdioClient, OdioConnectionError
-
-from conftest import eventually  # noqa: F401  (fixture module import)
 
 
 async def test_get_server_info(fake):

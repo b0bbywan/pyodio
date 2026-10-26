@@ -2,10 +2,10 @@
 
 from datetime import UTC, datetime, timedelta
 
+from conftest import PLAYER_SPOTIFY, eventually
+
 import pyodio
 from pyodio import OdioHub, OdioTimeoutError
-
-from conftest import PLAYER_SPOTIFY, eventually
 
 
 async def test_connect_populates_state(fake):
