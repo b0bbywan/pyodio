@@ -65,7 +65,7 @@ async def test_tracklist_commands_and_encoding(fake):
 async def test_client_name_url_encoding(fake):
     async with OdioClient(fake.url) as client:
         await client.set_client_volume("Playback/Stream #1", 0.4)
-    method, path, body = fake.requests[0]
+    _, path, body = fake.requests[0]
     assert path == "/audio/clients/Playback%2FStream%20%231/volume"
     assert body == {"volume": 0.4}
 
