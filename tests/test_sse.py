@@ -2,10 +2,10 @@
 
 import asyncio
 
+from conftest import eventually
+
 import pyodio.sse
 from pyodio import EventStream, OdioClient, stream_events
-
-from conftest import eventually
 
 
 async def test_stream_events_parses_wire_format(fake):
