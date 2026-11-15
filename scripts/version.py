@@ -19,7 +19,7 @@ INIT = Path(__file__).resolve().parent.parent / "src" / "pyodio" / "__init__.py"
 
 
 def read_version() -> str:
-    m = re.search(r'^__version__\s*=\s*"([^"]+)"', INIT.read_text(), re.M)
+    m = re.search(r'^__version__\s*=\s*"([^"]+)"', INIT.read_text(), re.MULTILINE)
     if not m:
         sys.exit(f"could not parse __version__ from {INIT}")
     return m.group(1)
