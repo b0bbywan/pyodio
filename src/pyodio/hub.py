@@ -971,10 +971,9 @@ class Upgrade:
                 run.percent = data["percent"]
             if isinstance(data.get("step"), str):
                 run.step = data["step"]
-        elif kind == "end":
-            # Raw script line; the run is closed by the lifecycle upgrade.info
-            # the server derives from it (or from the systemd unit result).
-            if data.get("success"):
+        # Raw script line; the run is closed by the lifecycle upgrade.info
+        # the server derives from it (or from the systemd unit result).
+        elif kind == "end" and data.get("success"):
                 run.percent = 100
         self._notifier.notify(PROGRESS, self)
 
